@@ -132,6 +132,26 @@ class _TodoPageState extends State<TodoPage> {
     }
   }
 
+  Future<void> _editTask(int id, String title, String description) async {
+    final response = await http.put(
+      Uri.parse('http://localhost:5287/api/todo/edit/$id'),
+      headers: <String, String>{
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: jsonEncode(<String, String>{
+        'title': title,
+        'description': description,
+      }),
+    );
+    if (response.statusCode == 204) {
+      _fetchTasks();
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al editar la tarea')),
+      );
+    }
+  }
+
   void _updateCounts() {
     completedCount = _tasks.where((task) => task['isCompleted']).length;
     notCompletedCount = _tasks.where((task) => !task['isCompleted']).length;
@@ -174,6 +194,52 @@ class _TodoPageState extends State<TodoPage> {
             ],
           );
         });
+  }
+
+  void _showEditTaskDialog(BuildContext context, int id, String currentTitle,
+      String currentDescription) {
+    _titleController.text = currentTitle;
+    _descriptionController.text = currentDescription;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Editar Tarea'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _titleController,
+                decoration: const InputDecoration(hintText: 'Título'),
+              ),
+              TextField(
+                controller: _descriptionController,
+                decoration: const InputDecoration(hintText: 'Descripción'),
+              ),
+            ],
+          ),
+          actions: [
+            ElevatedButton(
+              onPressed: () {
+                _editTask(
+                    id, _titleController.text, _descriptionController.text);
+                _titleController.clear();
+                _descriptionController.clear();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Guardar Cambios'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancelar'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -271,10 +337,8 @@ class _TodoPageState extends State<TodoPage> {
                     DateFormat('yyyy-MM-dd HH:mm').format(createdDate);
 
                 return Card(
-                  color: isCompleted
-                      ? Colors.lightBlue[100]
-                      : Colors.amber[
-                          100], // Cambiar el color de fondo basado en el estado de la tarea
+                  color:
+                      isCompleted ? Colors.lightBlue[100] : Colors.amber[100],
                   elevation: 2,
                   margin:
                       const EdgeInsets.symmetric(vertical: 5, horizontal: 10),
@@ -300,11 +364,27 @@ class _TodoPageState extends State<TodoPage> {
                       '${_tasks[index]['description']} - Fecha: $formattedDate',
                       style: const TextStyle(fontSize: 14),
                     ),
-                    trailing: IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        _deleteTask(_tasks[index]['id']);
-                      },
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.green),
+                          onPressed: () {
+                            _showEditTaskDialog(
+                              context,
+                              _tasks[index]['id'],
+                              _tasks[index]['title'],
+                              _tasks[index]['description'],
+                            );
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            _deleteTask(_tasks[index]['id']);
+                          },
+                        ),
+                      ],
                     ),
                     onTap: () {
                       _toogleTaskCompletion(_tasks[index]['id'], isCompleted);
